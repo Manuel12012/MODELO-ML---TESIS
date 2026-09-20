@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.models import (
+    User,
+    Project,
+    ModelVersion,
+    PredictionEvaluation,
+    PredictionResult,
+    ActualResult,
+    AuditLog
+)
+from routers.evaluations import router as evaluations_router
 from app.schemas import (
     ProjectInput,
     PredictionResponse
@@ -14,7 +23,7 @@ from app.services.indicator_service import (
     calculate_indicators
 )
 
-
+from routers.projects import router as projects_router
 # ============================================================
 # APLICACIÓN
 # ============================================================
@@ -27,8 +36,8 @@ app = FastAPI(
     ),
     version="1.0.0"
 )
-
-
+app.include_router(projects_router)
+app.include_router(evaluations_router)
 # ============================================================
 # CORS
 # ============================================================

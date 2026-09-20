@@ -4,24 +4,39 @@ import {
   LayoutDashboard,
   FolderKanban,
   BrainCircuit,
+  ClipboardList,
+  BarChart3,
   LogOut,
   Activity,
 } from "lucide-react";
 
+
 function Sidebar() {
+
   const navigate = useNavigate();
 
+
+  // ============================================================
+  // CERRAR SESIÓN
+  // ============================================================
+
   function logout() {
+
     localStorage.removeItem("authenticated");
 
     navigate("/login", {
       replace: true,
     });
+
   }
+
+
+  // ============================================================
+  // ESTILO DE OPCIONES
+  // ============================================================
 
   const navItemClass = ({ isActive }) =>
     [
-      "group",
       "flex",
       "items-center",
       "gap-3",
@@ -32,42 +47,53 @@ function Sidebar() {
       "font-medium",
       "transition-all",
       "duration-200",
+      "outline-none",
+      "focus-visible:ring-2",
+      "focus-visible:ring-blue-500",
+      "focus-visible:ring-offset-2",
+      "focus-visible:ring-offset-slate-950",
+
       isActive
-        ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+        ? "bg-blue-600 text-white shadow-sm shadow-blue-900/30"
         : "text-slate-400 hover:bg-slate-800 hover:text-white",
     ].join(" ");
 
+
   return (
+
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-slate-950 text-white">
+
 
       {/* =====================================================
           MARCA
       ====================================================== */}
 
-      <div className="flex h-20 items-center border-b border-slate-800 px-5">
+      <div className="flex h-20 shrink-0 items-center border-b border-slate-800 px-5">
 
         <div className="flex items-center gap-3">
 
-          {/* Icono */}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-900/30">
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-900/30">
             <Activity
               size={22}
               strokeWidth={2.2}
             />
+
           </div>
 
-
-          {/* Nombre */}
 
           <div className="leading-tight">
 
             <h1 className="text-base font-bold tracking-tight text-white">
+
               PredictSoft
+
             </h1>
 
             <span className="text-xs font-medium text-slate-500">
+
               ML Platform
+
             </span>
 
           </div>
@@ -81,67 +107,132 @@ function Sidebar() {
           NAVEGACIÓN
       ====================================================== */}
 
-      <nav className="flex-1 overflow-y-auto px-4 py-6">
+      <nav className="flex-1 px-4 py-6">
 
         <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
+
           Principal
+
         </p>
 
 
         <div className="space-y-1.5">
 
-          {/* Dashboard */}
+
+          {/* ==================================================
+              DASHBOARD
+          ================================================== */}
 
           <NavLink
             to="/dashboard"
             className={navItemClass}
           >
+
             <LayoutDashboard
               size={19}
               strokeWidth={1.9}
-              className="shrink-0"
             />
 
             <span>
+
               Dashboard
+
             </span>
+
           </NavLink>
 
 
-          {/* Proyectos */}
+          {/* ==================================================
+              PROYECTOS
+          ================================================== */}
 
           <NavLink
             to="/proyectos"
             className={navItemClass}
           >
+
             <FolderKanban
               size={19}
               strokeWidth={1.9}
-              className="shrink-0"
             />
 
             <span>
+
               Proyectos
+
             </span>
+
           </NavLink>
 
 
-          {/* Predicción */}
+          {/* ==================================================
+              NUEVA PREDICCIÓN
+          ================================================== */}
 
           <NavLink
             to="/prediccion"
             className={navItemClass}
           >
+
             <BrainCircuit
               size={19}
               strokeWidth={1.9}
-              className="shrink-0"
             />
 
             <span>
+
               Nueva predicción
+
             </span>
+
           </NavLink>
+
+
+          {/* ==================================================
+              EVALUACIONES
+          ================================================== */}
+
+          <NavLink
+            to="/evaluaciones"
+            className={navItemClass}
+          >
+
+            <ClipboardList
+              size={19}
+              strokeWidth={1.9}
+            />
+
+            <span>
+
+              Evaluaciones
+
+            </span>
+
+          </NavLink>
+
+
+          {/* ==================================================
+              COMPARACIÓN
+          ================================================== */}
+
+          <NavLink
+            to="/prediction-comparison"
+            className={navItemClass}
+          >
+
+            <BarChart3
+              size={19}
+              strokeWidth={1.9}
+            />
+
+            <span>
+
+              Comparación
+
+            </span>
+
+          </NavLink>
+
 
         </div>
 
@@ -149,7 +240,7 @@ function Sidebar() {
 
 
       {/* =====================================================
-          USUARIO / CERRAR SESIÓN
+          CERRAR SESIÓN
       ====================================================== */}
 
       <div className="border-t border-slate-800 p-4">
@@ -167,15 +258,21 @@ function Sidebar() {
           />
 
           <span>
+
             Cerrar sesión
+
           </span>
 
         </button>
 
       </div>
 
+
     </aside>
+
   );
+
 }
+
 
 export default Sidebar;

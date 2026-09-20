@@ -1,464 +1,1384 @@
+import { useEffect, useState } from "react";
+
 import {
-    Plus,
-    Search,
-    FolderKanban,
-    ArrowUpRight,
-    Clock3,
-    Wallet,
-    Bug,
-    Database,
+  FolderKanban,
+  Search,
+  CheckCircle2,
+  X,
+  Save,
+  CircleDollarSign,
+  Bug,
+  Activity,
+  Clock3,
+  AlertCircle,
 } from "lucide-react";
 
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  getProjects,
+  registerProjectResult,
+} from "../services/api";
+
 
 function Projects() {
-    const navigate = useNavigate();
 
-    const [search, setSearch] = useState("");
+  // ============================================================
+  // ESTADOS
+  // ============================================================
 
-    // ------------------------------------------------------------
-    // DATOS TEMPORALES
-    // ------------------------------------------------------------
-    // Posteriormente estos datos vendrán desde la base de datos.
-    const projects = [];
+  const [projects, setProjects] = useState([]);
 
-    const filteredProjects = useMemo(() => {
-        return projects.filter((project) =>
-            project.name
-                .toLowerCase()
-                .includes(search.toLowerCase())
-        );
-    }, [search, projects]);
+  const [search, setSearch] = useState("");
 
-    return (
-        <div className="space-y-8 pb-10">
+  const [loading, setLoading] = useState(true);
 
-            {/* ======================================================
+  const [error, setError] = useState("");
+
+
+  // ============================================================
+  // MODAL
+  // ============================================================
+
+  const [selectedProject, setSelectedProject] = useState(null);
+
+  const [showResultModal, setShowResultModal] = useState(false);
+
+
+  // ============================================================
+  // FORMULARIO RESULTADO
+  // ============================================================
+
+  const [actualDays, setActualDays] = useState("");
+
+  const [actualCost, setActualCost] = useState("");
+
+  const [actualDefects, setActualDefects] = useState("");
+
+
+  // ============================================================
+  // ESTADO DEL GUARDADO
+  // ============================================================
+
+  const [savingResult, setSavingResult] = useState(false);
+
+  const [resultError, setResultError] = useState("");
+
+
+  // ============================================================
+  // CARGAR PROYECTOS
+  // ============================================================
+
+  useEffect(() => {
+
+    loadProjects();
+
+  }, []);
+
+
+  async function loadProjects() {
+
+    try {
+
+      setLoading(true);
+
+      setError("");
+
+      const data = await getProjects();
+
+      setProjects(data);
+
+    } catch (err) {
+
+      console.error(err);
+
+      setError(
+        err.message ||
+        "No se pudieron cargar los proyectos."
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+
+  // ============================================================
+  // FILTRAR PROYECTOS
+  // ============================================================
+
+  const filteredProjects = projects.filter(
+    (project) =>
+      project.project_code
+        ?.toLowerCase()
+        .includes(search.toLowerCase())
+  );
+
+
+  // ============================================================
+  // ABRIR MODAL
+  // ============================================================
+
+  function openResultModal(project) {
+
+    setSelectedProject(project);
+
+    setResultError("");
+
+    setActualDays(
+      project.actual_days !== null &&
+      project.actual_days !== undefined
+        ? project.actual_days
+        : ""
+    );
+
+    setActualCost(
+      project.actual_cost_pen !== null &&
+      project.actual_cost_pen !== undefined
+        ? project.actual_cost_pen
+        : ""
+    );
+
+    setActualDefects(
+      project.defects !== null &&
+      project.defects !== undefined
+        ? project.defects
+        : ""
+    );
+
+    setShowResultModal(true);
+  }
+
+
+  // ============================================================
+  // CERRAR MODAL
+  // ============================================================
+
+  function closeResultModal() {
+
+    if (savingResult) {
+      return;
+    }
+
+    setShowResultModal(false);
+
+    setSelectedProject(null);
+
+    setActualDays("");
+
+    setActualCost("");
+
+    setActualDefects("");
+
+    setResultError("");
+  }
+
+
+  // ============================================================
+  // REGISTRAR RESULTADO
+  // ============================================================
+
+  async function handleSaveResult(event) {
+
+    event.preventDefault();
+
+    if (!selectedProject) {
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // VALIDACIONES FRONTEND
+    // ----------------------------------------------------------
+
+    if (
+      actualDays === "" ||
+      Number(actualDays) <= 0
+    ) {
+
+      setResultError(
+        "Los días reales deben ser mayores que cero."
+      );
+
+      return;
+    }
+
+
+    if (
+      actualCost === "" ||
+      Number(actualCost) < 0
+    ) {
+
+      setResultError(
+        "El costo real no puede ser negativo."
+      );
+
+      return;
+    }
+
+
+    if (
+      actualDefects === "" ||
+      Number(actualDefects) < 0
+    ) {
+
+      setResultError(
+        "La cantidad de errores no puede ser negativa."
+      );
+
+      return;
+    }
+
+
+    try {
+
+      setSavingResult(true);
+
+      setResultError("");
+
+
+      // --------------------------------------------------------
+      // DATOS QUE ENVIAREMOS AL BACKEND
+      // --------------------------------------------------------
+
+      const resultData = {
+
+        actual_days: Number(actualDays),
+
+        actual_cost_pen: Number(actualCost),
+
+        actual_defects: Number(actualDefects),
+
+      };
+
+
+      // --------------------------------------------------------
+      // LLAMAR API
+      // --------------------------------------------------------
+
+      const result = await registerProjectResult(
+        selectedProject.id,
+        resultData
+      );
+
+
+      // --------------------------------------------------------
+      // ACTUALIZAR PROYECTO EN EL ESTADO LOCAL
+      // --------------------------------------------------------
+
+      setProjects((currentProjects) =>
+
+        currentProjects.map((project) =>
+
+          project.id === selectedProject.id
+
+            ? {
+                ...project,
+
+                actual_days:
+                  result.actual_days,
+
+                actual_cost_pen:
+                  result.actual_cost_pen,
+
+                defects:
+                  result.actual_defects,
+
+                status:
+                  result.status,
+              }
+
+            : project
+
+        )
+
+      );
+
+
+      // --------------------------------------------------------
+      // CERRAR MODAL
+      // --------------------------------------------------------
+
+      setShowResultModal(false);
+
+      setSelectedProject(null);
+
+      setActualDays("");
+
+      setActualCost("");
+
+      setActualDefects("");
+
+      setResultError("");
+
+
+    } catch (err) {
+
+      console.error(
+        "Error al registrar resultado:",
+        err
+      );
+
+      setResultError(
+        err.message ||
+        "No se pudo registrar el resultado."
+      );
+
+
+    } finally {
+
+      setSavingResult(false);
+
+    }
+  }
+
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
+  return (
+
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+
+
+      {/* ======================================================
+          CONTENEDOR PRINCIPAL
+      ======================================================= */}
+
+      <div className="mx-auto max-w-7xl px-6 py-8">
+
+
+        {/* ====================================================
             HEADER
-        ====================================================== */}
+        ===================================================== */}
 
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
-                <div>
+          <div>
 
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
-                        <FolderKanban size={16} />
+            <div className="flex items-center gap-3">
 
-                        Gestión de proyectos
-                    </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 border border-blue-100">
 
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                        Proyectos
-                    </h2>
-
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                        Consulte y gestione las evaluaciones predictivas de los
-                        proyectos de software.
-                    </p>
-
-                </div>
-
-
-                <button
-                    onClick={() => navigate("/prediccion")}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-all hover:bg-blue-600 hover:shadow-blue-600/20"
-                >
-                    <Plus size={18} />
-
-                    Nueva predicción
-
-                    <ArrowUpRight size={16} />
-                </button>
-
-            </div>
-
-
-            {/* ======================================================
-            RESUMEN
-        ====================================================== */}
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-
-                <SummaryCard
-                    icon={<FolderKanban size={19} />}
-                    label="Proyectos registrados"
-                    value={projects.length}
-                    color="blue"
+                <FolderKanban
+                  size={23}
+                  className="text-blue-600"
                 />
 
-                <SummaryCard
-                    icon={<Clock3 size={19} />}
-                    label="Evaluaciones predictivas"
-                    value="0"
-                    color="violet"
+              </div>
+
+              <div>
+
+                <h1 className="text-2xl font-bold text-slate-900">
+
+                  Proyectos
+
+                </h1>
+
+                <p className="mt-1 text-sm text-slate-500">
+
+                  Gestión y seguimiento de proyectos de software
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* ==================================================
+              TOTAL
+          =================================================== */}
+
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
+
+                <FolderKanban
+                  size={18}
+                  className="text-slate-600"
                 />
 
-                <SummaryCard
-                    icon={<Database size={19} />}
-                    label="Fuente de información"
-                    value="ML"
-                    color="emerald"
-                />
+              </div>
+
+              <div>
+
+                <p className="text-xs font-medium text-slate-500">
+
+                  Total de proyectos
+
+                </p>
+
+                <p className="text-lg font-bold text-slate-900">
+
+                  {projects.length}
+
+                </p>
+
+              </div>
 
             </div>
 
-
-            {/* ======================================================
-            CONTENEDOR PRINCIPAL
-        ====================================================== */}
-
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-                {/* TOOLBAR */}
-
-                <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/70 p-5 sm:flex-row sm:items-center sm:justify-between">
-
-                    <div>
-
-                        <h3 className="font-semibold text-slate-900">
-                            Evaluaciones de proyectos
-                        </h3>
-
-                        <p className="mt-1 text-xs text-slate-500">
-                            Historial de proyectos analizados por el sistema.
-                        </p>
-
-                    </div>
-
-
-                    <div className="relative w-full sm:w-72">
-
-                        <Search
-                            size={17}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                        />
-
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(event) =>
-                                setSearch(event.target.value)
-                            }
-                            placeholder="Buscar proyecto..."
-                            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        />
-
-                    </div>
-
-                </div>
-
-
-                {/* ====================================================
-              TABLA / EMPTY STATE
-          ==================================================== */}
-
-                {filteredProjects.length === 0 ? (
-
-                    <EmptyState
-                        hasSearch={search.length > 0}
-                        onCreate={() => navigate("/prediccion")}
-                    />
-
-                ) : (
-
-                    <ProjectTable projects={filteredProjects} />
-
-                )}
-
-            </section>
-
-
-            {/* ======================================================
-            INFORMACIÓN
-        ====================================================== */}
-
-            <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
-
-                <div className="flex items-start gap-4">
-
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
-                        <BrainIcon />
-                    </div>
-
-                    <div>
-
-                        <h4 className="text-sm font-semibold text-slate-900">
-                            Evaluación mediante Machine Learning
-                        </h4>
-
-                        <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
-                            Cada evaluación utiliza los modelos predictivos entrenados
-                            para estimar la duración, el costo y los defectos esperados
-                            del proyecto. Los indicadores de desempeño se calculan a
-                            partir de dichas estimaciones.
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-    );
-}
-
-
-/* ==============================================================
-   SUMMARY CARD
-============================================================== */
-
-function SummaryCard({
-    icon,
-    label,
-    value,
-    color,
-}) {
-
-    const colors = {
-        blue: "bg-blue-50 text-blue-600",
-        violet: "bg-violet-50 text-violet-600",
-        emerald: "bg-emerald-50 text-emerald-600",
-    };
-
-    return (
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <div className="flex items-center gap-4">
-
-                <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${colors[color]}`}
-                >
-                    {icon}
-                </div>
-
-                <div>
-
-                    <p className="text-xs font-medium text-slate-400">
-                        {label}
-                    </p>
-
-                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                        {value}
-                    </p>
-
-                </div>
-
-            </div>
+          </div>
 
         </div>
 
-    );
-}
 
+        {/* ====================================================
+            BUSCADOR
+        ===================================================== */}
 
-/* ==============================================================
-   EMPTY STATE
-============================================================== */
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 
-function EmptyState({
-    hasSearch,
-    onCreate,
-}) {
+          <div className="relative max-w-md">
 
-    return (
+            <Search
+              size={19}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
 
-        <div className="flex min-h-[400px] flex-col items-center justify-center px-6 py-12 text-center">
+            <input
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Buscar por código de proyecto..."
+              className="
+                w-full
+                rounded-xl
+                border
+                border-slate-200
+                bg-slate-50
+                py-2.5
+                pl-10
+                pr-4
+                text-sm
+                text-slate-800
+                outline-none
+                transition
+                placeholder:text-slate-400
+                focus:border-blue-400
+                focus:bg-white
+                focus:ring-2
+                focus:ring-blue-100
+              "
+            />
 
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-
-                <FolderKanban size={30} />
-
-            </div>
-
-
-            <h3 className="text-lg font-semibold text-slate-900">
-
-                {hasSearch
-                    ? "No se encontraron proyectos"
-                    : "No hay proyectos registrados"}
-
-            </h3>
-
-
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-
-                {hasSearch
-                    ? "No existe ningún proyecto que coincida con la búsqueda."
-                    : "Realice una nueva predicción para comenzar a evaluar proyectos de software."}
-
-            </p>
-
-
-            {!hasSearch && (
-
-                <button
-                    onClick={onCreate}
-                    className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
-                >
-
-                    <Plus size={17} />
-
-                    Crear evaluación
-
-                </button>
-
-            )}
+          </div>
 
         </div>
 
-    );
-}
+
+        {/* ====================================================
+            ERROR GENERAL
+        ===================================================== */}
+
+        {error && (
+
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+
+            <AlertCircle
+              size={19}
+              className="mt-0.5 shrink-0"
+            />
+
+            <div>
+
+              <p className="font-semibold">
+                Error
+              </p>
+
+              <p className="mt-1">
+                {error}
+              </p>
+
+            </div>
+
+          </div>
+
+        )}
 
 
-/* ==============================================================
-   PROJECT TABLE
-============================================================== */
+        {/* ====================================================
+            LOADING
+        ===================================================== */}
 
-function ProjectTable({
-    projects,
-}) {
+        {loading ? (
 
-    return (
+          <div className="flex min-h-[350px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        <div className="overflow-x-auto">
+            <div className="text-center">
 
-            <table className="w-full min-w-[760px]">
+              <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+
+              <p className="text-sm text-slate-500">
+
+                Cargando proyectos...
+
+              </p>
+
+            </div>
+
+          </div>
+
+        ) : (
+
+          /* ==================================================
+             TABLA
+          =================================================== */
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+            <div className="overflow-x-auto">
+
+              <table className="w-full min-w-[950px]">
 
                 <thead>
 
-                    <tr className="border-b border-slate-100 text-left">
+                  <tr className="border-b border-slate-200 bg-slate-50">
 
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Proyecto
-                        </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
 
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Duración
-                        </th>
+                      Proyecto
 
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Presupuesto
-                        </th>
+                    </th>
 
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Defectos
-                        </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
 
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Estado
-                        </th>
+                      Región
 
-                    </tr>
+                    </th>
+
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                      Servicio
+
+                    </th>
+
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                      Días planificados
+
+                    </th>
+
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                      Presupuesto
+
+                    </th>
+
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                      Estado
+
+                    </th>
+
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+                      Acción
+
+                    </th>
+
+                  </tr>
 
                 </thead>
 
 
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
 
-                    {projects.map((project) => (
+                  {filteredProjects.length === 0 ? (
+
+                    <tr>
+
+                      <td
+                        colSpan="7"
+                        className="px-6 py-16 text-center"
+                      >
+
+                        <div className="flex flex-col items-center">
+
+                          <FolderKanban
+                            size={40}
+                            className="mb-3 text-slate-300"
+                          />
+
+                          <p className="font-medium text-slate-600">
+
+                            No se encontraron proyectos
+
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-400">
+
+                            Intenta cambiar el término de búsqueda.
+
+                          </p>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+
+                  ) : (
+
+                    filteredProjects.map((project) => {
+
+                      const isFinished =
+                        project.status === "finalizado";
+
+
+                      return (
 
                         <tr
-                            key={project.id}
-                            className="border-b border-slate-50 transition hover:bg-slate-50"
+                          key={project.id}
+                          className="transition hover:bg-slate-50"
                         >
 
-                            <td className="px-6 py-4">
+                          {/* PROJECT */}
 
-                                <div>
+                          <td className="px-6 py-5">
 
-                                    <p className="text-sm font-semibold text-slate-900">
-                                        {project.name}
-                                    </p>
+                            <div className="flex items-center gap-3">
 
-                                    <p className="mt-1 text-xs text-slate-400">
-                                        {project.region}
-                                    </p>
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
 
-                                </div>
+                                <FolderKanban
+                                  size={19}
+                                  className="text-blue-600"
+                                />
 
-                            </td>
+                              </div>
+
+                              <div>
+
+                                <p className="font-semibold text-slate-800">
+
+                                  {project.project_code}
+
+                                </p>
+
+                                <p className="mt-0.5 text-xs text-slate-400">
+
+                                  ID #{project.id}
+
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          </td>
 
 
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                                {project.days} días
-                            </td>
+                          {/* REGION */}
+
+                          <td className="px-6 py-5">
+
+                            <span className="text-sm text-slate-600">
+
+                              {project.region || "—"}
+
+                            </span>
+
+                          </td>
 
 
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                                S/ {project.cost}
-                            </td>
+                          {/* SERVICE */}
+
+                          <td className="px-6 py-5">
+
+                            <span className="text-sm text-slate-600">
+
+                              {project.service_line || "—"}
+
+                            </span>
+
+                          </td>
 
 
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                                {project.defects}
-                            </td>
+                          {/* PLANNED DAYS */}
+
+                          <td className="px-6 py-5 text-center">
+
+                            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+
+                              <Clock3
+                                size={16}
+                                className="text-slate-400"
+                              />
+
+                              {project.planned_days ?? "—"}
+
+                            </div>
+
+                          </td>
 
 
-                            <td className="px-6 py-4">
+                          {/* BUDGET */}
 
-                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                    Evaluado
-                                </span>
+                          <td className="px-6 py-5 text-center">
 
-                            </td>
+                            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+
+                              <CircleDollarSign
+                                size={16}
+                                className="text-slate-400"
+                              />
+
+                              {project.budget_pen !== null &&
+                              project.budget_pen !== undefined
+                                ? `S/ ${Number(
+                                    project.budget_pen
+                                  ).toLocaleString(
+                                    "es-PE",
+                                    {
+                                      minimumFractionDigits: 2,
+                                    }
+                                  )}`
+                                : "—"}
+
+                            </div>
+
+                          </td>
+
+
+                          {/* STATUS */}
+
+                          <td className="px-6 py-5 text-center">
+
+                            {isFinished ? (
+
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+
+                                <CheckCircle2
+                                  size={14}
+                                />
+
+                                Finalizado
+
+                              </span>
+
+                            ) : (
+
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+
+                                <Activity
+                                  size={14}
+                                />
+
+                                En ejecución
+
+                              </span>
+
+                            )}
+
+                          </td>
+
+
+                          {/* ACTION */}
+
+                          <td className="px-6 py-5 text-center">
+
+                            {isFinished ? (
+
+                              <span className="text-xs font-medium text-slate-400">
+
+                                Resultado registrado
+
+                              </span>
+
+                            ) : (
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openResultModal(project)
+                                }
+                                className="
+                                  inline-flex
+                                  items-center
+                                  gap-2
+                                  rounded-lg
+                                  border
+                                  border-blue-200
+                                  bg-blue-50
+                                  px-3.5
+                                  py-2
+                                  text-xs
+                                  font-semibold
+                                  text-blue-700
+                                  transition
+                                  hover:border-blue-300
+                                  hover:bg-blue-100
+                                "
+                              >
+
+                                <CheckCircle2
+                                  size={15}
+                                />
+
+                                Registrar resultado
+
+                              </button>
+
+                            )}
+
+                          </td>
 
                         </tr>
 
-                    ))}
+                      );
+
+                    })
+
+                  )}
 
                 </tbody>
 
-            </table>
+              </table>
+
+            </div>
+
+
+            {/* ==================================================
+                FOOTER TABLA
+            =================================================== */}
+
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3">
+
+              <p className="text-xs text-slate-500">
+
+                Mostrando{" "}
+
+                <span className="font-semibold text-slate-700">
+
+                  {filteredProjects.length}
+
+                </span>{" "}
+
+                de{" "}
+
+                <span className="font-semibold text-slate-700">
+
+                  {projects.length}
+
+                </span>{" "}
+
+                proyectos
+
+              </p>
+
+            </div>
+
+          </div>
+
+        )}
+
+      </div>
+
+
+      {/* ======================================================
+          MODAL
+      ======================================================= */}
+
+      {showResultModal && selectedProject && (
+
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-slate-900/40
+            px-4
+            py-6
+            backdrop-blur-sm
+          "
+        >
+
+          {/* ==================================================
+              MODAL CARD
+          =================================================== */}
+
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+
+
+            {/* =================================================
+                MODAL HEADER
+            ================================================== */}
+
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+
+              <div>
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+
+                    <FolderKanban
+                      size={19}
+                      className="text-blue-600"
+                    />
+
+                  </div>
+
+                  <div>
+
+                    <h2 className="text-lg font-bold text-slate-900">
+
+                      Registrar resultado
+
+                    </h2>
+
+                    <p className="text-xs text-slate-500">
+
+                      {selectedProject.project_code}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <button
+                type="button"
+                onClick={closeResultModal}
+                disabled={savingResult}
+                className="
+                  rounded-lg
+                  p-2
+                  text-slate-400
+                  transition
+                  hover:bg-slate-100
+                  hover:text-slate-600
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+
+                <X size={20} />
+
+              </button>
+
+            </div>
+
+
+            {/* =================================================
+                MODAL BODY
+            ================================================== */}
+
+            <form
+              onSubmit={handleSaveResult}
+              className="p-6"
+            >
+
+              {/* =================================================
+                  INFO PROYECTO
+              ================================================== */}
+
+              <div className="mb-6 grid grid-cols-2 gap-3">
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                  <div className="mb-1 flex items-center gap-2">
+
+                    <Clock3
+                      size={15}
+                      className="text-slate-400"
+                    />
+
+                    <span className="text-xs font-medium text-slate-500">
+
+                      Días planificados
+
+                    </span>
+
+                  </div>
+
+                  <p className="text-lg font-bold text-slate-800">
+
+                    {selectedProject.planned_days ?? "—"}
+
+                  </p>
+
+                </div>
+
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                  <div className="mb-1 flex items-center gap-2">
+
+                    <CircleDollarSign
+                      size={15}
+                      className="text-slate-400"
+                    />
+
+                    <span className="text-xs font-medium text-slate-500">
+
+                      Presupuesto
+
+                    </span>
+
+                  </div>
+
+                  <p className="text-lg font-bold text-slate-800">
+
+                    {selectedProject.budget_pen !== null &&
+                    selectedProject.budget_pen !== undefined
+                      ? `S/ ${Number(
+                          selectedProject.budget_pen
+                        ).toLocaleString(
+                          "es-PE",
+                          {
+                            minimumFractionDigits: 2,
+                          }
+                        )}`
+                      : "—"}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              {/* =================================================
+                  CAMPOS
+              ================================================== */}
+
+              <div className="space-y-5">
+
+
+                {/* DIAS */}
+
+                <div>
+
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+
+                    Días reales
+
+                  </label>
+
+                  <div className="relative">
+
+                    <Clock3
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      type="number"
+                      min="1"
+                      value={actualDays}
+                      onChange={(event) =>
+                        setActualDays(
+                          event.target.value
+                        )
+                      }
+                      disabled={savingResult}
+                      placeholder="Ej. 120"
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-white
+                        py-3
+                        pl-10
+                        pr-4
+                        text-sm
+                        text-slate-800
+                        outline-none
+                        transition
+                        placeholder:text-slate-400
+                        focus:border-blue-400
+                        focus:ring-2
+                        focus:ring-blue-100
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                      "
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* COSTO */}
+
+                <div>
+
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+
+                    Costo real
+
+                  </label>
+
+                  <div className="relative">
+
+                    <CircleDollarSign
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={actualCost}
+                      onChange={(event) =>
+                        setActualCost(
+                          event.target.value
+                        )
+                      }
+                      disabled={savingResult}
+                      placeholder="Ej. 15000.00"
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-white
+                        py-3
+                        pl-10
+                        pr-4
+                        text-sm
+                        text-slate-800
+                        outline-none
+                        transition
+                        placeholder:text-slate-400
+                        focus:border-blue-400
+                        focus:ring-2
+                        focus:ring-blue-100
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                      "
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* ERRORES */}
+
+                <div>
+
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+
+                    Errores detectados
+
+                  </label>
+
+                  <div className="relative">
+
+                    <Bug
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={actualDefects}
+                      onChange={(event) =>
+                        setActualDefects(
+                          event.target.value
+                        )
+                      }
+                      disabled={savingResult}
+                      placeholder="Ej. 15"
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-white
+                        py-3
+                        pl-10
+                        pr-4
+                        text-sm
+                        text-slate-800
+                        outline-none
+                        transition
+                        placeholder:text-slate-400
+                        focus:border-blue-400
+                        focus:ring-2
+                        focus:ring-blue-100
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                      "
+                    />
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* =================================================
+                  ERROR DEL MODAL
+              ================================================== */}
+
+              {resultError && (
+
+                <div className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+
+                  <AlertCircle
+                    size={18}
+                    className="mt-0.5 shrink-0 text-red-500"
+                  />
+
+                  <div>
+
+                    <p className="text-sm font-semibold text-red-700">
+
+                      No se pudo registrar
+
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-red-600">
+
+                      {resultError}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+              )}
+
+
+              {/* =================================================
+                  ADVERTENCIA
+              ================================================== */}
+
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+
+                <p className="text-xs leading-5 text-amber-700">
+
+                  Al guardar el resultado, el proyecto pasará
+                  automáticamente al estado{" "}
+
+                  <span className="font-bold">
+                    Finalizado
+                  </span>
+
+                  {" "}y los valores registrados se utilizarán
+                  para calcular los indicadores reales.
+
+                </p>
+
+              </div>
+
+
+              {/* =================================================
+                  BOTONES
+              ================================================== */}
+
+              <div className="mt-6 flex justify-end gap-3">
+
+                <button
+                  type="button"
+                  onClick={closeResultModal}
+                  disabled={savingResult}
+                  className="
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    px-4
+                    py-2.5
+                    text-sm
+                    font-semibold
+                    text-slate-600
+                    transition
+                    hover:bg-slate-50
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+
+                  Cancelar
+
+                </button>
+
+
+                <button
+                  type="submit"
+                  disabled={savingResult}
+                  className="
+                    inline-flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    bg-blue-600
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-semibold
+                    text-white
+                    shadow-sm
+                    transition
+                    hover:bg-blue-700
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
+                  "
+                >
+
+                  {savingResult ? (
+
+                    <>
+
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                      Guardando...
+
+                    </>
+
+                  ) : (
+
+                    <>
+
+                      <Save size={17} />
+
+                      Finalizar proyecto
+
+                    </>
+
+                  )}
+
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
 
         </div>
 
-    );
-}
+      )}
 
+    </div>
 
-/* ==============================================================
-   ICONO
-============================================================== */
-
-function BrainIcon() {
-
-    return (
-
-        <svg
-            width="19"
-            height="19"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-
-            <path d="M12 5a3 3 0 1 0-5.83 1" />
-
-            <path d="M12 5a3 3 0 1 1 5.83 1" />
-
-            <path d="M7 6a3 3 0 0 0-1 5.83" />
-
-            <path d="M17 6a3 3 0 0 1 1 5.83" />
-
-            <path d="M6 12a3 3 0 0 0 1 5.83" />
-
-            <path d="M18 12a3 3 0 0 1-1 5.83" />
-
-            <path d="M7 18a3 3 0 0 0 5 1" />
-
-            <path d="M17 18a3 3 0 0 1-5 1" />
-
-            <path d="M12 5v14" />
-
-        </svg>
-
-    );
+  );
 }
 
 
